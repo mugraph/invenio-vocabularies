@@ -62,6 +62,7 @@ class SubjectSchema(BaseVocabularySchema):
         )
     )
     synonyms = fields.List(SanitizedUnicode())
+    meta = fields.Method("get_hit_meta", dump_only=True)
 
     @pre_load
     def add_subject_from_title(self, data, **kwargs):
@@ -70,6 +71,24 @@ class SubjectSchema(BaseVocabularySchema):
         if "subject" not in data:
             data["subject"] = data["title"].get(locale) or data["title"].values()[0]
         return data
+
+    def get_hit_meta(self, obj):
+        """Get search meta data."""
+        meta = self.context.get("meta", {})
+        if not meta: 
+            return None
+
+        matched_queries = meta.get("matched_queries", [])
+        synonyms = meta.get("highlight", {}).get("synonyms", [])
+
+        res = {
+            "score": meta.get("score"),
+            "matched_queries": list(matched_queries),
+        }
+        if "synonyms" in matched_queries and synonyms:
+            res["matched_synonym"] = synonyms[0].replace("<em>", "").replace("</em>", "")
+
+        return res
 
 
 class SubjectRelationSchema(ContribVocabularyRelationSchema):
